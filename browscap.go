@@ -121,6 +121,34 @@ func GetBrowser(userAgent string) (browser *Browser, ok bool) {
 	return
 }
 
+func GetBrowserData(userAgent string) (bdata map[string]string, ok bool) {
+	if !initialized {
+		return
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			bdata = map[string]string{}
+			ok = false
+		}
+	}()
+
+	agent := bytes.ToLower([]byte(userAgent))
+	prefix := getPrefix(userAgent)
+
+	// Main search
+	if bdata, ok = getBrowserData(prefix, agent); ok {
+		return
+	}
+
+	// Fallback
+	if prefix != "*" {
+		bdata, ok = getBrowserData("*", agent)
+	}
+
+	return
+}
+
 func getBrowser(prefix string, agent []byte) (browser *Browser, ok bool) {
 	if expressions, exists := dict.expressions[prefix]; exists {
 		for _, exp := range expressions {
@@ -133,4 +161,16 @@ func getBrowser(prefix string, agent []byte) (browser *Browser, ok bool) {
 		}
 	}
 	return
+}
+
+func getBrowserData(prefix string, agent []byte) (map[string]string, bool) {
+	if expressions, exists := dict.expressions[prefix]; exists {
+		for _, exp := range expressions {
+			if exp.Match(agent) {
+				data := dict.findData(exp.Name)
+				return data, true
+			}
+		}
+	}
+	return map[string]string{}, false
 }
