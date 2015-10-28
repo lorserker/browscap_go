@@ -3,6 +3,10 @@ package browscap_go
 type dictionary struct {
 	expressions map[string][]*expression
 	mapped      map[string]section
+
+	expressionList    []*expression
+	expressionLengths []float64
+	ngramIndex        map[string][]int
 }
 
 type section map[string]string
@@ -11,6 +15,10 @@ func newDictionary() *dictionary {
 	return &dictionary{
 		expressions: make(map[string][]*expression),
 		mapped:      make(map[string]section),
+
+		expressionList:    make([]*expression, 0, 0),
+		expressionLengths: make([]float64, 0, 0),
+		ngramIndex:        make(map[string][]int),
 	}
 }
 

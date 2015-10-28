@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 )
 
 const (
@@ -93,45 +95,18 @@ func DownloadFile(saveAs string) error {
 	return nil
 }
 
-func GetBrowser(userAgent string) (browser *Browser, ok bool) {
-	if !initialized {
-		return
+func GetBrowserData(userAgent string) (map[string]string, bool) {
+	bdata, ok := searchIndexedBrowserData(userAgent)
+	if ok {
+		return bdata, ok
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			browser = nil
-			ok = false
-		}
-	}()
-
-	agent := bytes.ToLower([]byte(userAgent))
-	prefix := getPrefix(userAgent)
-
-	// Main search
-	if browser, ok = getBrowser(prefix, agent); ok {
-		return
-	}
-
-	// Fallback
-	if prefix != "*" {
-		browser, ok = getBrowser("*", agent)
-	}
-
-	return
+	return getLoopBrowserData(userAgent)
 }
 
-func GetBrowserData(userAgent string) (bdata map[string]string, ok bool) {
+func getLoopBrowserData(userAgent string) (bdata map[string]string, ok bool) {
 	if !initialized {
 		return
 	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			bdata = map[string]string{}
-			ok = false
-		}
-	}()
 
 	agent := bytes.ToLower([]byte(userAgent))
 	prefix := getPrefix(userAgent)
@@ -149,19 +124,58 @@ func GetBrowserData(userAgent string) (bdata map[string]string, ok bool) {
 	return
 }
 
-func getBrowser(prefix string, agent []byte) (browser *Browser, ok bool) {
-	if expressions, exists := dict.expressions[prefix]; exists {
-		for _, exp := range expressions {
-			if exp.Match(agent) {
-				data := dict.findData(exp.Name)
-				browser = extractBrowser(data)
-				ok = true
-				return
+func searchIndexedBrowserData(userAgent string) (bdata map[string]string, ok bool) {
+	if !initialized {
+		return
+	}
+
+	agent := strings.ToLower(userAgent)
+	agentBytes := []byte(agent)
+
+	eeIxScores := make(map[int]float64)
+	for _, ngram := range getNGrams(agent, NGRAM_LEN) {
+		eeIxList, ok := dict.ngramIndex[ngram]
+		if ok {
+			for _, eeIx := range eeIxList {
+				eeIxScores[eeIx] = dict.expressionLengths[eeIx]
 			}
 		}
 	}
-	return
+
+	for _, p := range rankByHitCount(eeIxScores) {
+		ee := dict.expressionList[p.Key]
+		if ee.Match(agentBytes) {
+			data := dict.findData(ee.Name)
+			return data, true
+		}
+	}
+
+	return map[string]string{}, false
 }
+
+func rankByHitCount(eeIxCounts map[int]float64) hitPairList {
+	pl := make(hitPairList, len(eeIxCounts), len(eeIxCounts))
+	i := 0
+	for eeIx, score := range eeIxCounts {
+		pl[i] = hitPair{Key: eeIx, Val: score}
+		i++
+	}
+	sort.Sort(sort.Reverse(pl))
+	return pl
+}
+
+type hitPair struct {
+	Key int
+	Val float64
+}
+
+type hitPairList []hitPair
+
+func (p hitPairList) Len() int { return len(p) }
+func (p hitPairList) Less(i, j int) bool {
+	return p[i].Val < p[j].Val
+}
+func (p hitPairList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func getBrowserData(prefix string, agent []byte) (map[string]string, bool) {
 	if expressions, exists := dict.expressions[prefix]; exists {
