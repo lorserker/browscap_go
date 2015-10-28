@@ -2,7 +2,7 @@ package browscap_go
 
 import (
 	"bytes"
-	"github.com/fromYukki/browscap_go/re0"
+	"github.com/lorserker/browscap_go/re0"
 )
 
 type expression struct {
