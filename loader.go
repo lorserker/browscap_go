@@ -205,5 +205,7 @@ func loadFromIniFile(path string) (*dictionary, error) {
 		sort.Sort(sort.Reverse(l))
 	}
 
+	dict.buildCompleteData()
+
 	return dict, nil
 }

@@ -143,22 +143,20 @@ func searchIndexedBrowserData(userAgent string) (map[string]string, bool) {
 
 	sort.Sort(nonemptyLists) // shorter first
 
-	listIdx := make([]int, len(nonemptyLists))
-
+	idx := 0
 	for startI := 0; startI < len(nonemptyLists); {
-		for i := startI; i < len(listIdx); i++ {
-			idx := listIdx[i]
+		for i := startI; i < len(nonemptyLists); i++ {
 			if idx >= len(nonemptyLists[i]) {
-				startI++
+				startI++ // when we ran out of elements in the column, we can move right
 				continue
 			}
 			ee := dict.expressionList[nonemptyLists[i][idx].Key]
 			if ee.Match(agentBytes) {
-				data := dict.findData(ee.Name)
+				data := dict.getData(ee.Name)
 				return data, true
 			}
-			listIdx[i]++
 		}
+		idx++
 	}
 
 	return nil, false
@@ -189,7 +187,7 @@ func getBrowserData(prefix string, agent []byte) (map[string]string, bool) {
 	if expressions, exists := dict.expressions[prefix]; exists {
 		for _, exp := range expressions {
 			if exp.Match(agent) {
-				data := dict.findData(exp.Name)
+				data := dict.getData(exp.Name)
 				return data, true
 			}
 		}
