@@ -124,44 +124,44 @@ func getLoopBrowserData(userAgent string) (bdata map[string]string, ok bool) {
 	return
 }
 
-func searchIndexedBrowserData(userAgent string) (bdata map[string]string, ok bool) {
+func searchIndexedBrowserData(userAgent string) (map[string]string, bool) {
 	if !initialized {
-		return
+		return nil, false
 	}
 
 	agent := strings.ToLower(userAgent)
 	agentBytes := []byte(agent)
 
-	eeIxScores := make(map[int]float64)
+	nonemptyLists := make(hitPairListList, 0)
+
 	for _, ngram := range getNGrams(agent, NGRAM_LEN) {
 		eeIxList, ok := dict.ngramIndex[ngram]
-		if ok {
-			for _, eeIx := range eeIxList {
-				eeIxScores[eeIx] = dict.expressionLengths[eeIx]
+		if ok && len(eeIxList) > 0 {
+			nonemptyLists = append(nonemptyLists, eeIxList)
+		}
+	}
+
+	sort.Sort(nonemptyLists) // shorter first
+
+	listIdx := make([]int, len(nonemptyLists))
+
+	for startI := 0; startI < len(nonemptyLists); {
+		for i := startI; i < len(listIdx); i++ {
+			idx := listIdx[i]
+			if idx >= len(nonemptyLists[i]) {
+				startI++
+				continue
 			}
+			ee := dict.expressionList[nonemptyLists[i][idx].Key]
+			if ee.Match(agentBytes) {
+				data := dict.findData(ee.Name)
+				return data, true
+			}
+			listIdx[i]++
 		}
 	}
 
-	for _, p := range rankByHitCount(eeIxScores) {
-		ee := dict.expressionList[p.Key]
-		if ee.Match(agentBytes) {
-			data := dict.findData(ee.Name)
-			return data, true
-		}
-	}
-
-	return map[string]string{}, false
-}
-
-func rankByHitCount(eeIxCounts map[int]float64) hitPairList {
-	pl := make(hitPairList, len(eeIxCounts), len(eeIxCounts))
-	i := 0
-	for eeIx, score := range eeIxCounts {
-		pl[i] = hitPair{Key: eeIx, Val: score}
-		i++
-	}
-	sort.Sort(sort.Reverse(pl))
-	return pl
+	return nil, false
 }
 
 type hitPair struct {
@@ -176,6 +176,14 @@ func (p hitPairList) Less(i, j int) bool {
 	return p[i].Val < p[j].Val
 }
 func (p hitPairList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+type hitPairListList []hitPairList
+
+func (p hitPairListList) Len() int { return len(p) }
+func (p hitPairListList) Less(i, j int) bool {
+	return len(p[i]) < len(p[j])
+}
+func (p hitPairListList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func getBrowserData(prefix string, agent []byte) (map[string]string, bool) {
 	if expressions, exists := dict.expressions[prefix]; exists {

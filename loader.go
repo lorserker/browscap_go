@@ -146,15 +146,16 @@ func loadFromIniFile(path string) (*dictionary, error) {
 
 			// add the expression to the expression list
 			i := len(dict.expressionList)
+			score := float64(len(ee.Name))
 			dict.expressionList = append(dict.expressionList, ee)
-			dict.expressionLengths = append(dict.expressionLengths, float64(len(ee.Name)))
+			dict.expressionLengths = append(dict.expressionLengths, score)
 			for _, ngram := range getNGrams(strings.ToLower(sectionName), NGRAM_LEN) {
 				if !strings.Contains(ngram, "*") && !strings.Contains(ngram, "?") {
 					expressionIndex, found := dict.ngramIndex[ngram]
 					if !found {
-						expressionIndex = make([]int, 0, 0)
+						expressionIndex = make(hitPairList, 0, 1)
 					}
-					expressionIndex = append(expressionIndex, i)
+					expressionIndex = append(expressionIndex, hitPair{Key: i, Val: score})
 					dict.ngramIndex[ngram] = expressionIndex
 				}
 			}
@@ -198,6 +199,10 @@ func loadFromIniFile(path string) (*dictionary, error) {
 		expressions := dict.expressions[prefix]
 		sort.Sort(expressionByNameLen(expressions))
 		dict.expressions[prefix] = expressions
+	}
+
+	for _, l := range dict.ngramIndex {
+		sort.Sort(sort.Reverse(l))
 	}
 
 	return dict, nil

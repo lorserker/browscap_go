@@ -6,7 +6,7 @@ type dictionary struct {
 
 	expressionList    []*expression
 	expressionLengths []float64
-	ngramIndex        map[string][]int
+	ngramIndex        map[string]hitPairList
 }
 
 type section map[string]string
@@ -18,7 +18,7 @@ func newDictionary() *dictionary {
 
 		expressionList:    make([]*expression, 0, 0),
 		expressionLengths: make([]float64, 0, 0),
-		ngramIndex:        make(map[string][]int),
+		ngramIndex:        make(map[string]hitPairList),
 	}
 }
 
